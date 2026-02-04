@@ -1,604 +1,834 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>灵签簿</title>
+    <title> fortune.exe </title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            image-rendering: pixelated;
         }
-        
+
         :root {
-            --ink: #2c2c2c;
-            --paper: #f4f1ea;
-            --cinnabar: #b83e2f;
-            --gold: #d4af37;
-            --bamboo: #5a7d5a;
-            --shadow: rgba(0,0,0,0.1);
+            --bg: #0a0a0f;
+            --fg: #9ca3af;
+            --dim: #4b5563;
+            --accent: #6b7280;
+            --highlight: #d1d5db;
+            --shadow: #000000;
         }
-        
+
         body {
-            font-family: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
-            background: var(--paper);
-            color: var(--ink);
-            line-height: 1.8;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-        }
-        
-        /* 卷轴头部装饰 */
-        .scroll-header {
-            background: linear-gradient(to bottom, #e8e4d9 0%, var(--paper) 100%);
-            border-bottom: 3px double var(--cinnabar);
-            padding: 30px 20px 20px;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: "LiSu", "STLiti", "隶书", "SimLi", "FangSong", serif;
+            font-size: 20px;
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
             position: relative;
-            text-align: center;
         }
-        
-        .cloud-pattern {
+
+        /* Background grid */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background-image: 
+                linear-gradient(var(--dim) 1px, transparent 1px),
+                linear-gradient(90deg, var(--dim) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.08;
+            animation: gridMove 30s linear infinite;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-60px, -60px); }
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--highlight);
+            opacity: 0.3;
+            animation: float 20s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(100vh); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-100vh); opacity: 0; }
+        }
+
+        /* CRT effect */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.03),
+                rgba(0, 0, 0, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* Compact header */
+        header {
+            text-align: center;
+            padding: 20px 20px 10px;
+            position: relative;
+        }
+
+        .logo-svg {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            opacity: 0.7;
+        }
+
+        h1 {
+            font-size: 48px;
+            letter-spacing: 12px;
+            text-transform: uppercase;
+            color: var(--highlight);
+            text-shadow: 
+                0 0 10px rgba(209, 213, 219, 0.2),
+                2px 2px 0 var(--shadow);
+            animation: flicker 4s infinite;
+            font-weight: normal;
+            margin: 0;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            92% { opacity: 1; }
+            93% { opacity: 0.6; }
+            94% { opacity: 1; }
+            96% { opacity: 0.8; }
+            97% { opacity: 1; }
+        }
+
+        .subtitle {
+            color: var(--dim);
+            font-size: 14px;
+            margin-top: 5px;
+            letter-spacing: 6px;
+        }
+
+        /* Sticky search bar only */
+        .sticky-search {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(to bottom, var(--bg) 90%, transparent);
+            padding: 10px 20px 20px;
+        }
+
+        .search-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .search-wrap {
+            position: relative;
+            border: 1px solid var(--dim);
+            background: rgba(10, 10, 15, 0.95);
+            transition: all 0.3s;
+        }
+
+        .search-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(107, 114, 128, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--dim);
+            font-size: 18px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            background: transparent;
+            color: var(--fg);
+            border: none;
+            padding: 14px 15px 14px 45px;
+            font-family: inherit;
+            font-size: 18px;
+            outline: none;
+            text-align: left;
+            letter-spacing: 2px;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--dim);
+        }
+
+        /* Main content */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 30px 40px;
+        }
+
+        /* Action button */
+        .action-bar {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--accent);
+            padding: 10px 35px;
+            font-family: inherit;
+            font-size: 18px;
+            cursor: pointer;
+            letter-spacing: 6px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--highlight);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1px;
+            background: var(--dim);
+            border: 1px solid var(--dim);
+        }
+
+        .card {
+            background: var(--bg);
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            height: 20px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z' fill='%23b83e2f' opacity='0.1'/%3E%3C/svg%3E");
-            background-size: 1200px 100%;
-            opacity: 0.5;
-        }
-        
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            letter-spacing: 0.5em;
-            color: var(--cinnabar);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            display: inline-flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .seal {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--cinnabar);
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            color: var(--cinnabar);
-            transform: rotate(-5deg);
-            box-shadow: inset 0 0 5px rgba(184,62,47,0.3);
-        }
-        
-        /* 搜索区域 */
-        .search-area {
-            padding: 20px;
-            background: rgba(255,255,255,0.5);
-            border-bottom: 1px solid rgba(184,62,47,0.2);
-        }
-        
-        .search-box {
             width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            display: block;
-            padding: 15px 20px 15px 50px;
-            border: 2px solid rgba(184,62,47,0.3);
-            border-radius: 30px;
-            font-size: 16px;
-            background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23b83e2f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 20px center;
-            outline: none;
-            transition: all 0.3s;
+            height: 2px;
+            background: var(--highlight);
+            transform: scaleX(0);
+            transition: transform 0.3s;
         }
-        
-        .search-box:focus {
-            border-color: var(--cinnabar);
-            box-shadow: 0 0 0 3px rgba(184,62,47,0.1);
+
+        .card:hover {
+            background: rgba(15, 15, 25, 0.9);
         }
-        
-        /* 筛选标签 */
-        .filter-tabs {
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-header {
             display: flex;
-            justify-content: center;
-            gap: 20px;
-            padding: 15px;
-            background: rgba(255,255,255,0.3);
-        }
-        
-        .filter-tab {
-            padding: 8px 24px;
-            border: 2px solid transparent;
-            background: transparent;
-            font-size: 16px;
-            cursor: pointer;
-            border-radius: 20px;
-            font-family: inherit;
-            color: var(--ink);
-            transition: all 0.3s;
-            position: relative;
-        }
-        
-        .filter-tab::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 20px;
-            padding: 2px;
-            background: linear-gradient(45deg, var(--cinnabar), var(--gold));
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .filter-tab:hover::before,
-        .filter-tab.active::before {
-            opacity: 1;
-        }
-        
-        .filter-tab.active {
-            color: var(--cinnabar);
-            font-weight: 600;
-        }
-        
-        /* 统计条 */
-        .count-bar {
-            text-align: center;
-            padding: 10px;
-            font-size: 14px;
-            color: #666;
-            border-bottom: 1px dashed rgba(0,0,0,0.1);
-        }
-        
-        /* 主内容区 */
-        .content {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 0 20px 40px;
-            position: relative;
-        }
-        
-        /* 竹简装饰 */
-        .bamboo-decor {
-            position: absolute;
-            left: -30px;
-            top: 100px;
-            width: 20px;
-            height: 200px;
-            background: repeating-linear-gradient(
-                to bottom,
-                var(--bamboo) 0px,
-                var(--bamboo) 15px,
-                #4a6b4a 15px,
-                #4a6b4a 17px
-            );
-            border-radius: 10px;
-            opacity: 0.3;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-        }
-        
-        .bamboo-decor.right {
-            left: auto;
-            right: -30px;
-        }
-        
-        /* 字母分组标题 */
-        .section-header {
-            display: flex;
+            justify-content: space-between;
             align-items: center;
-            margin: 30px 0 15px;
-            position: sticky;
-            top: 0;
-            background: var(--paper);
-            padding: 10px 0;
-            z-index: 10;
+            margin-bottom: 12px;
         }
-        
-        .section-letter {
-            width: 40px;
-            height: 40px;
-            background: var(--cinnabar);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: bold;
-            margin-right: 15px;
-            box-shadow: 0 2px 8px rgba(184,62,47,0.3);
+
+        .card-title {
+            font-size: 28px;
+            color: var(--highlight);
+            letter-spacing: 4px;
         }
-        
-        .section-line {
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(to right, var(--cinnabar), transparent);
-        }
-        
-        /* 签文卡片 */
-        .fortune-item {
-            background: white;
-            margin-bottom: 15px;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px var(--shadow);
-            border-left: 4px solid var(--cinnabar);
-            position: relative;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .fortune-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .fortune-item.bads {
-            border-left-color: #555;
-        }
-        
-        .fortune-item::before {
-            content: '';
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 30px;
-            height: 30px;
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 10 C30 10, 10 30, 10 50 C10 70, 30 90, 50 90 C70 90, 90 70, 90 50 C90 30, 70 10, 50 10' fill='none' stroke='%23d4af37' stroke-width='2' opacity='0.3'/%3E%3C/svg%3E");
-            opacity: 0.5;
-        }
-        
-        .fortune-type {
-            display: inline-block;
-            padding: 2px 12px;
-            border-radius: 12px;
+
+        .card-type {
             font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 8px;
+            color: var(--dim);
+            border: 1px solid var(--dim);
+            padding: 2px 8px;
             letter-spacing: 2px;
         }
-        
-        .fortune-type.goods {
-            background: rgba(184,62,47,0.1);
-            color: var(--cinnabar);
-            border: 1px solid rgba(184,62,47,0.3);
-        }
-        
-        .fortune-type.bads {
-            background: rgba(0,0,0,0.05);
-            color: #555;
-            border: 1px solid rgba(0,0,0,0.2);
-        }
-        
-        .fortune-text {
-            font-size: 18px;
+
+        .card-content {
+            font-size: 16px;
+            color: var(--accent);
             line-height: 1.8;
-            color: var(--ink);
-            font-weight: 500;
+            letter-spacing: 1px;
         }
-        
-        /* 字母导航 */
-        .alphabet-nav {
+
+        .card:hover .card-content {
+            color: var(--fg);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
             position: fixed;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255,255,255,0.9);
-            border-radius: 20px;
-            padding: 10px 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border: 1px solid rgba(184,62,47,0.2);
-            z-index: 100;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 15, 0.95);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
-        
-        .alphabet-nav a {
-            display: block;
-            width: 28px;
-            height: 28px;
-            line-height: 28px;
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            border: 1px solid var(--dim);
+            background: var(--bg);
+            padding: 50px;
+            max-width: 480px;
+            width: 100%;
+            position: relative;
+            animation: slideUp 0.4s;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--dim);
+            transition: all 0.3s;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+        }
+
+        .close:hover {
+            color: var(--highlight);
+            border-color: var(--dim);
+        }
+
+        .modal-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            color: var(--highlight);
+            letter-spacing: 8px;
             text-align: center;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--cinnabar);
-            text-decoration: none;
-            border-radius: 50%;
-            margin: 2px 0;
+        }
+
+        /* Vertical text: 4 chars per column */
+        .vertical-text {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: center;
+            gap: 30px;
+            padding: 30px 20px;
+            background: rgba(15, 15, 25, 0.5);
+            border: 1px solid var(--dim);
+            margin-bottom: 25px;
+            min-height: 220px;
+        }
+
+        .text-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .char {
+            font-size: 32px;
+            color: var(--fg);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
             transition: all 0.2s;
+            font-family: "LiSu", "STLiti", "隶书", "SimLi", serif;
         }
-        
-        .alphabet-nav a:hover {
-            background: var(--cinnabar);
-            color: white;
+
+        .char:hover {
+            border-color: var(--accent);
+            background: rgba(209, 213, 219, 0.05);
         }
-        
-        /* 空状态 */
-        .no-results {
+
+        /* Shake modal */
+        .shake-container {
             text-align: center;
-            padding: 60px 20px;
-            color: #999;
+            padding: 10px;
         }
-        
-        .no-results svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.3;
+
+        .tube-svg {
+            width: 100px;
+            height: 140px;
+            margin: 0 auto 25px;
         }
-        
-        /* 页脚装饰 */
-        .footer-decor {
+
+        .tube-shake {
+            animation: tubeShake 0.5s infinite;
+            transform-origin: bottom center;
+        }
+
+        @keyframes tubeShake {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        .stick-fall {
+            animation: stickFall 1s forwards;
+        }
+
+        @keyframes stickFall {
+            0% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(60px) rotate(180deg); }
+            100% { transform: translateY(100px) rotate(360deg); }
+        }
+
+        .result-info {
             text-align: center;
-            padding: 40px 20px;
-            opacity: 0.5;
+            color: var(--dim);
+            font-size: 13px;
+            letter-spacing: 3px;
+            margin-top: 20px;
         }
-        
-        /* 响应式 */
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 24px;
-                letter-spacing: 0.3em;
-            }
-            
-            .alphabet-nav {
-                right: 5px;
-                padding: 5px 2px;
-            }
-            
-            .alphabet-nav a {
-                width: 24px;
-                height: 24px;
-                line-height: 24px;
-                font-size: 11px;
-            }
-            
-            .bamboo-decor {
-                display: none;
-            }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 36px; letter-spacing: 8px; }
+            .grid { grid-template-columns: 1fr; }
+            .modal-content { padding: 40px 25px; }
+            .modal-title { font-size: 32px; letter-spacing: 6px; }
+            .char { font-size: 26px; width: 36px; height: 36px; }
+            .vertical-text { gap: 20px; min-height: 180px; }
+            input[type="text"] { font-size: 16px; }
         }
     </style>
 </head>
 <body>
-    <!-- 头部 -->
-    <div class="scroll-header">
-        <div class="cloud-pattern"></div>
-        <h1>
-            <svg width="40" height="40" viewBox="0 0 100 100" style="vertical-align: middle;">
-                <rect x="20" y="20" width="60" height="60" fill="none" stroke="#b83e2f" stroke-width="3" rx="5"/>
-                <text x="50" y="65" text-anchor="middle" font-size="40" fill="#b83e2f" font-family="serif">籤</text>
-            </svg>
-            灵签簿
-            <svg width="40" height="40" viewBox="0 0 100 100" style="vertical-align: middle;">
-                <circle cx="50" cy="50" r="35" fill="none" stroke="#d4af37" stroke-width="2"/>
-                <path d="M50 20 Q70 35 70 50 Q70 65 50 80 Q30 65 30 50 Q30 35 50 20" fill="none" stroke="#b83e2f" stroke-width="2"/>
-            </svg>
-        </h1>
-    </div>
-    
-    <!-- 搜索 -->
-    <div class="search-area">
-        <input type="text" class="search-box" id="searchInput" placeholder="搜索签文（支持简体/繁体）...">
-    </div>
-    
-    <!-- 筛选 -->
-    <div class="filter-tabs">
-        <button class="filter-tab active" onclick="setFilter('all')">全部签文</button>
-        <button class="filter-tab" onclick="setFilter('goods')">吉签</button>
-        <button class="filter-tab" onclick="setFilter('bads')">凶签</button>
-    </div>
-    
-    <!-- 统计 -->
-    <div class="count-bar" id="countBar">共 7 支签</div>
-    
-    <!-- 内容 -->
-    <div class="content">
-        <div class="bamboo-decor"></div>
-        <div class="bamboo-decor right"></div>
-        <div id="results"></div>
-    </div>
-    
-    <!-- 字母导航 -->
-    <div class="alphabet-nav" id="alphabetNav"></div>
-    
-    <!-- 底部装饰 -->
-    <div class="footer-decor">
-        <svg width="200" height="30" viewBox="0 0 200 30" style="margin: 0 auto;">
-            <path d="M0,15 Q50,5 100,15 T200,15" fill="none" stroke="#b83e2f" stroke-width="1" opacity="0.3"/>
-            <circle cx="100" cy="15" r="3" fill="#b83e2f" opacity="0.5"/>
+    <div class="bg-grid"></div>
+    <div class="particles" id="particles"></div>
+
+    <!-- Compact Header -->
+    <header>
+        <svg class="logo-svg" viewBox="0 0 100 100">
+            <rect x="30" y="30" width="40" height="40" fill="none" stroke="#d1d5db" stroke-width="2">
+                <animate attributeName="stroke-dasharray" values="0,160;160,0" dur="4s" repeatCount="indefinite"/>
+            </rect>
+            <rect x="38" y="38" width="24" height="24" fill="none" stroke="#6b7280" stroke-width="1" opacity="0.5">
+                <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="15s" repeatCount="indefinite"/>
+            </rect>
+            <circle cx="50" cy="50" r="4" fill="#d1d5db" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
+            </circle>
         </svg>
+        <h1>FORTUNE</h1>
+        <div class="subtitle">像素灵签</div>
+    </header>
+
+    <!-- Sticky Search Only -->
+    <div class="sticky-search">
+        <div class="search-container">
+            <div class="search-wrap">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="searchInput" placeholder="搜索签文..." oninput="handleSearch()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="action-bar">
+            <button onclick="openShake()">摇 签</button>
+        </div>
+
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal" id="detailModal" onclick="closeDetail(event)">
+        <div class="modal-content" id="detailContent">
+            <div class="close" onclick="closeDetailBtn()">×</div>
+            <div id="detailBody"></div>
+        </div>
+    </div>
+
+    <!-- Shake Modal -->
+    <div class="modal" id="shakeModal" onclick="closeShake(event)">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="close" onclick="closeShakeBtn()">×</div>
+            <div class="shake-container">
+                <svg class="tube-svg" id="tubeSvg" viewBox="0 0 100 140">
+                    <rect x="30" y="10" width="40" height="100" rx="2" fill="none" stroke="#4b5563" stroke-width="1.5"/>
+                    <line x1="34" y1="20" x2="34" y2="100" stroke="#4b5563" stroke-width="0.5" opacity="0.3"/>
+                    <line x1="66" y1="20" x2="66" y2="100" stroke="#4b5563" stroke-width="0.5" opacity="0.3"/>
+                    
+                    <g id="sticks">
+                        <rect x="40" y="30" width="3" height="50" fill="#6b7280" opacity="0.4"/>
+                        <rect x="48" y="25" width="3" height="55" fill="#6b7280" opacity="0.4"/>
+                        <rect x="56" y="35" width="3" height="45" fill="#6b7280" opacity="0.4"/>
+                    </g>
+                    
+                    <g id="fallingStick" style="display: none;">
+                        <rect x="48" y="15" width="4" height="55" fill="#d1d5db"/>
+                        <text x="50" y="42" text-anchor="middle" fill="#0a0a0f" font-size="10" font-family="LiSu, STLiti, 隶书">签</text>
+                    </g>
+                </svg>
+
+                <div id="shakeResult" style="display: none;">
+                    <h2 id="resultTitle" style="font-size: 28px; margin-bottom: 25px; color: #d1d5db; letter-spacing: 6px;"></h2>
+                    <div id="resultVertical" class="vertical-text" style="min-height: 180px; padding: 25px 15px;"></div>
+                </div>
+
+                <button onclick="startShake()" id="shakeBtn">摇 签</button>
+                <button onclick="closeShakeBtn()" id="closeShakeBtn" style="display: none; margin-left: 10px;">关 闭</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 简繁体转换表
-        const charMap = {
-            '謹': '谨', '謹': '谨', '謹': '谨',
-            '穩': '稳', '進': '进', '漸': '渐', '昇': '升',
-            '斂': '敛', '鋒': '锋', '內': '内', '積': '积', '靜': '静', '華': '华',
-            '撫': '抚', '氣': '气', '興': '兴', '澤': '泽', '綿': '绵',
-            '極': '极', '來': '来', '獲': '获', '鵬': '鹏', '遠': '远',
-            '審': '审', '視': '视', '細': '细', '機': '机', '趨': '趋', '頭': '头',
-            '堅': '坚', '鳴': '鸣'
-        };
-        
-        function simplify(str) {
-            return str.split('').map(c => charMap[c] || c).join('');
+        const data = [
+            {t:"谨慎",c:"谨言慎行，防微杜渐，福自安",type:"good"},
+            {t:"稳步",c:"循序渐进，根基稳，步步高升",type:"good"},
+            {t:"收敛",c:"锋芒内敛，蓄德聚福，静待光华",type:"good"},
+            {t:"安抚",c:"心平气和，家和事兴，福泽绵",type:"good"},
+            {t:"再起",c:"否极泰来，重获生机，鹏程远",type:"good"},
+            {t:"审视",c:"明察秋毫，洞察先机，趋吉避",type:"good"},
+            {t:"感情",c:"琴瑟和鸣，情坚似金，白首同",type:"good"},
+            {t:"调适",c:"顺应时势，调和身心，运势通",type:"good"},
+            {t:"保持",c:"持之以恒，善始善终，福报随",type:"good"},
+            {t:"培育",c:"精心浇灌，厚值根基，硕果累",type:"good"},
+            {t:"守恒",c:"动态平衡，持久稳定，恒常昌",type:"good"},
+            {t:"取舍",c:"明辨是非，当断则断，留精华",type:"good"},
+            {t:"适应",c:"随遇而安，顺势而为，无不胜",type:"good"},
+            {t:"谦逊",c:"虚怀若谷，德厚流光，贵人助",type:"good"},
+            {t:"积累",c:"厚积薄发，聚沙成塔，终成器",type:"good"},
+            {t:"反思",c:"三省吾身，修正不足，智慧长",type:"good"},
+            {t:"凝神",c:"专注一心，排除杂念，事功倍",type:"good"},
+            {t:"抑制",c:"克制私欲，保持本心，福寿宁",type:"good"},
+            {t:"静心",c:"淡泊明志，宁静致远，万事顺",type:"good"},
+            {t:"试探",c:"投石问路，谨慎前行，方向明",type:"good"},
+            {t:"释怀",c:"放下执念，心无挂碍，自在逍",type:"good"},
+            {t:"接纳",c:"海纳百川，包容万物，福泽厚",type:"good"},
+            {t:"调整",c:"优化方向，精准施策，事半倍",type:"good"},
+            {t:"稳健",c:"稳扎稳打，脚踏实地，无虞忧",type:"good"},
+            {t:"留意",c:"眼观六路，耳听八方，机遇来",type:"good"},
+            {t:"潜伏",c:"韬光养晦，如龙在渊，厚积发",type:"good"},
+            {t:"调和",c:"阴阳平衡，刚柔并济，家和兴",type:"good"},
+            {t:"审慎",c:"深思熟虑，明辨是非，无虞忧",type:"good"},
+            {t:"矫正",c:"修正偏颇，回归正道，福泽至",type:"good"},
+            {t:"平复",c:"心平气和，诸事顺遂，圆满初",type:"good"},
+            {t:"修养",c:"修身养性，德厚流光，福自来",type:"good"},
+            {t:"借力",c:"善假于物，乘势而上，事易成",type:"good"},
+            {t:"引导",c:"引航方向，拨云见日，途自明",type:"good"},
+            {t:"回旋",c:"留有余地，灵活转身，无滞碍",type:"good"},
+            {t:"守护",c:"悉心护持，屏障稳固，安无虞",type:"good"},
+            {t:"反思",c:"反躬自省，明察得失，智日增",type:"good"},
+            {t:"优化",c:"去芜存菁，精益求精，效倍增",type:"good"},
+            {t:"深耕",c:"沉潜笃行，根扎深厚，果必丰",type:"good"},
+            {t:"积累",c:"聚少成多，积微成着，终成器",type:"good"},
+            {t:"合作",c:"同心协力，互补共济，事功倍",type:"good"},
+            {t:"平衡",c:"张弛有度，阴阳均和，久则安",type:"good"},
+            {t:"探索",c:"探幽索隐，开疆拓境，新机现",type:"good"},
+            {t:"精研",c:"穷究其妙，研精覃思，业必精",type:"good"},
+            {t:"分析",c:"条分缕析，洞见本质，断必明",type:"good"},
+            {t:"调整",c:"审时度势，微调校准，行不偏",type:"good"},
+            {t:"顺应",c:"顺天应人，乘势而为，运自昌",type:"good"},
+            {t:"稳固",c:"根基坚实，如磐石立，无倾颓",type:"good"},
+            {t:"细查",c:"明察秋毫，见微知著，机不失",type:"good"},
+            {t:"拓展",c:"开疆拓土，由近及远，境日阔",type:"good"},
+            {t:"进取",c:"勇毅前行，日有所进，功必成",type:"good"},
+            {t:"鼓舞",c:"振气提神，聚心聚力，力倍增",type:"good"},
+            {t:"领导",c:"振臂引领，众志相随，事可成",type:"good"},
+            {t:"承诺",c:"一诺千金，言出必行，信自立",type:"good"},
+            {t:"奉献",c:"舍己利他，善念常存，福泽厚",type:"good"},
+            {t:"带动",c:"率先垂范，引领前行，群力进",type:"good"},
+            {t:"远见",c:"高瞻远瞩，见远知微，行有方",type:"good"},
+            {t:"超越",c:"破茧而出，更上层楼，境自新",type:"good"},
+            {t:"激励",c:"燃己照人，催力奋进，绩必优",type:"good"},
+            {t:"共赢",c:"互利互惠，各得其所，皆欢喜",type:"good"},
+            {t:"传承",c:"薪火相传，文脉永续，业长青",type:"good"},
+            {t:"果断",c:"当机立断，雷厉风行，事不拖",type:"good"},
+            {t:"融合",c:"百川汇海，兼容并蓄，力更强",type:"good"},
+            {t:"协调",c:"上下联动，左右协同，畅无阻",type:"good"},
+            {t:"内省",c:"观心自照，知短补长，慧自生",type:"bad"},
+            {t:"克制",c:"敛欲守中，行不逾矩，祸不侵",type:"bad"},
+            {t:"调适",c:"顺时调态，身心相协，事皆顺",type:"bad"},
+            {t:"蓄力",c:"潜蓄能量，待时而发，势如洪",type:"bad"},
+            {t:"收敛",c:"藏峰敛芒，蓄势养德，福渐增",type:"bad"},
+            {t:"潜藏",c:"潜龙在渊，厚积待跃，时必腾",type:"bad"},
+            {t:"审慎",c:"深思熟虑，行则无失，功可成",type:"bad"},
+            {t:"自保",c:"明哲保身，守正避危，安无虞",type:"bad"},
+            {t:"自省",c:"日省吾身，纠偏归正，行不迷",type:"bad"},
+            {t:"回避",c:"审时避厄，暂退求全，后必安",type:"bad"},
+            {t:"守候",c:"静待时机，初心不怠，果自熟",type:"bad"},
+            {t:"抑制",c:"制躁存静，守神固志，事不扰",type:"bad"},
+            {t:"解围",c:"化困为夷，转危为安，福自临",type:"bad"},
+            {t:"低调",c:"谦退自处，不事张扬，祸不招",type:"bad"},
+            {t:"避锋",c:"暂避锐势，待其势衰，再前行",type:"bad"},
+            {t:"沉思",c:"静思悟道，洞见真机，断必明",type:"bad"},
+            {t:"释然",c:"放下执念，心无挂碍，福自来",type:"bad"},
+            {t:"磨砺",c:"历境锻心，百炼成真，业自精",type:"bad"},
+            {t:"探问",c:"投石问路，明辨虚实，行不盲",type:"bad"},
+            {t:"持守",c:"守道不移，初心不改，终有成",type:"bad"},
+            {t:"转念",c:"移念向明，困厄自解，境立新",type:"bad"},
+            {t:"深究",c:"探本求源，穷理尽性，智自增",type:"bad"},
+            {t:"应变",c:"随机而变，灵活通达，无滞碍",type:"bad"},
+            {t:"借鉴",c:"取人之长，补己之短，功易成",type:"bad"},
+            {t:"留心",c:"察微知着，见机而行，福不失",type:"bad"},
+            {t:"冷静",c:"处变不惊，静能生慧，断必当",type:"bad"},
+            {t:"卸重",c:"轻装前行，心无负累，步自轻",type:"bad"},
+            {t:"忍让",c:"退一步海阔，让三分安和",type:"bad"},
+            {t:"转圜",c:"留有余地，灵活转身，路自宽",type:"bad"},
+            {t:"重生",c:"破茧新生，否极泰来，运自昌",type:"bad"}
+        ];
+
+        let searchTerm = '';
+        let currentResult = null;
+
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 12; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.animationDelay = Math.random() * 20 + 's';
+                p.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(p);
+            }
         }
-        
-        // 数据源
-        const rawData = {
-            goods: [
-                "謹慎，謹言慎行，防微杜漸，福自安",
-                "穩步，循序漸進，根基穩，步步高昇",
-                "收斂，鋒芒內斂，蓄德聚福，靜待光華",
-                "安撫，心平氣和，家和事興，福澤綿",
-                "再起，否極泰來，重獲生機，鵬程遠",
-                "審視，明察秋毫，洞察先機，趨吉避",
-                "感情，琴瑟和鳴，情堅似金，白首同"
-            ],
-            bads: ["待補充"]
-        };
-        
-        // 拼音首字母表（正确映射）
-        const pinyinMap = {
-            '謹': 'J', '谨': 'J',
-            '穩': 'W', '稳': 'W',
-            '收': 'S',
-            '安': 'A',
-            '再': 'Z',
-            '審': 'S', '审': 'S',
-            '感': 'G',
-            '待': 'D',
-            '凶': 'X',
-            '禍': 'H'
-        };
-        
-        let currentFilter = 'all';
-        let fortunes = [];
-        
-        function parseData() {
-            fortunes = [];
+
+        function formatVertical(text) {
+            const cleanText = text.replace(/[，。、；：]/g, '');
+            const chars = cleanText.split('');
+            const columns = [];
             
-            // 解析吉签
-            rawData.goods.forEach((text, idx) => {
-                if (text && text !== '待補充') {
-                    const title = text.split('，')[0];
-                    fortunes.push({
-                        id: `g${idx}`,
-                        type: 'goods',
-                        label: '吉',
-                        title: title,
-                        content: text,
-                        letter: pinyinMap[title[0]] || title[0],
-                        idx: idx
-                    });
+            for (let i = 0; i < chars.length; i += 4) {
+                const col = chars.slice(i, i + 4);
+                while (col.length < 4) {
+                    col.push('');
                 }
-            });
-            
-            // 解析凶签
-            rawData.bads.forEach((text, idx) => {
-                if (text && text !== '待補充') {
-                    const title = text.split('，')[0];
-                    fortunes.push({
-                        id: `b${idx}`,
-                        type: 'bads',
-                        label: '凶',
-                        title: title,
-                        content: text,
-                        letter: pinyinMap[title[0]] || title[0],
-                        idx: idx
-                    });
-                }
-            });
-        }
-        
-        function render() {
-            const container = document.getElementById('results');
-            const query = document.getElementById('searchInput').value.trim().toLowerCase();
-            const querySimple = simplify(query);
-            
-            // 过滤
-            let filtered = fortunes.filter(f => {
-                const matchType = currentFilter === 'all' || f.type === currentFilter;
-                if (!query) return matchType;
-                
-                const contentSimple = simplify(f.content);
-                const titleSimple = simplify(f.title);
-                
-                return matchType && (
-                    f.content.includes(query) || 
-                    f.title.includes(query) ||
-                    contentSimple.includes(querySimple) ||
-                    titleSimple.includes(querySimple)
-                );
-            });
-            
-            // 按拼音字母排序
-            filtered.sort((a, b) => a.letter.localeCompare(b.letter));
-            
-            // 更新计数
-            document.getElementById('countBar').textContent = `共 ${filtered.length} 支签`;
-            
-            if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="no-results">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                        </svg>
-                        <p>未找到匹配签文</p>
-                    </div>
-                `;
-                document.getElementById('alphabetNav').innerHTML = '';
-                return;
+                columns.push(col);
             }
             
-            // 按字母分组
-            const groups = {};
-            filtered.forEach(f => {
-                if (!groups[f.letter]) groups[f.letter] = [];
-                groups[f.letter].push(f);
-            });
+            return columns;
+        }
+
+        function renderVerticalText(text, containerId) {
+            const columns = formatVertical(text);
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
             
-            const letters = Object.keys(groups).sort();
-            
-            // 渲染内容
-            let html = '';
-            letters.forEach(letter => {
-                html += `
-                    <div class="section-header" id="sec-${letter}">
-                        <div class="section-letter">${letter}</div>
-                        <div class="section-line"></div>
-                    </div>
-                `;
+            columns.forEach((col, colIndex) => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'text-column';
                 
-                groups[letter].forEach(f => {
-                    html += `
-                        <div class="fortune-item ${f.type}">
-                            <div class="fortune-type ${f.type}">${f.label}签</div>
-                            <div class="fortune-text">${f.content}</div>
-                        </div>
-                    `;
+                col.forEach((char, charIndex) => {
+                    if (char) {
+                        const span = document.createElement('span');
+                        span.className = 'char';
+                        span.textContent = char;
+                        span.style.animation = `fadeIn 0.3s ${(colIndex * 4 + charIndex) * 0.05}s backwards`;
+                        colDiv.appendChild(span);
+                    }
                 });
+                
+                container.appendChild(colDiv);
             });
-            
-            container.innerHTML = html;
-            
-            // 渲染字母导航
-            const nav = document.getElementById('alphabetNav');
-            nav.innerHTML = letters.map(l => 
-                `<a href="#sec-${l}" onclick="return scrollToLetter('${l}')">${l}</a>`
-            ).join('');
         }
-        
-        function scrollToLetter(letter) {
-            const el = document.getElementById(`sec-${letter}`);
-            if (el) {
-                const offset = 200;
-                const top = el.offsetTop - offset;
-                window.scrollTo({ top: top, behavior: 'smooth' });
-            }
-            return false;
-        }
-        
-        function setFilter(type) {
-            currentFilter = type;
-            document.querySelectorAll('.filter-tab').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.textContent.includes(type === 'all' ? '全部' : type === 'goods' ? '吉' : '凶')) {
-                    btn.classList.add('active');
-                }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            const filtered = data.filter(d => {
+                return !searchTerm || 
+                    d.t.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    d.c.toLowerCase().includes(searchTerm.toLowerCase());
             });
+
+            filtered.forEach((d, i) => {
+                const card = document.createElement('div');
+                card.className = `card ${d.type}`;
+                card.style.animationDelay = `${i * 0.02}s`;
+                
+                const typeLabel = d.type === 'good' ? '吉' : '凶';
+                
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span class="card-title">${d.t}</span>
+                        <span class="card-type">${typeLabel}</span>
+                    </div>
+                    <div class="card-content">${d.c}</div>
+                `;
+                
+                card.onclick = () => showDetail(d);
+                grid.appendChild(card);
+            });
+        }
+
+        function handleSearch() {
+            searchTerm = document.getElementById('searchInput').value.trim();
             render();
         }
-        
-        // 事件监听
-        document.getElementById('searchInput').addEventListener('input', render);
-        
-        // 初始化
-        parseData();
+
+        function showDetail(d) {
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('detailBody');
+            
+            const typeText = d.type === 'good' ? '吉签' : '凶签';
+            const verticalId = 'detailVertical';
+            
+            body.innerHTML = `
+                <h2 class="modal-title">${d.t}</h2>
+                <div id="${verticalId}" class="vertical-text"></div>
+                <div style="text-align: center; color: var(--dim); font-size: 13px; letter-spacing: 4px;">
+                    ${typeText}
+                </div>
+            `;
+            
+            setTimeout(() => renderVerticalText(d.c, verticalId), 10);
+            modal.classList.add('active');
+        }
+
+        function closeDetail(e) {
+            if (e.target === e.currentTarget) {
+                document.getElementById('detailModal').classList.remove('active');
+            }
+        }
+
+        function closeDetailBtn() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function openShake() {
+            document.getElementById('shakeModal').classList.add('active');
+            resetShake();
+        }
+
+        function resetShake() {
+            document.getElementById('shakeResult').style.display = 'none';
+            document.getElementById('tubeSvg').style.display = 'block';
+            document.getElementById('sticks').style.display = 'block';
+            document.getElementById('fallingStick').style.display = 'none';
+            document.getElementById('tubeSvg').classList.remove('tube-shake');
+            
+            const shakeBtn = document.getElementById('shakeBtn');
+            const closeBtn = document.getElementById('closeShakeBtn');
+            
+            shakeBtn.style.display = 'inline-block';
+            shakeBtn.textContent = '摇 签';
+            shakeBtn.disabled = false;
+            shakeBtn.onclick = startShake;
+            
+            closeBtn.style.display = 'none';
+            
+            currentResult = null;
+        }
+
+        function startShake() {
+            const shakeBtn = document.getElementById('shakeBtn');
+            const tube = document.getElementById('tubeSvg');
+            
+            shakeBtn.disabled = true;
+            shakeBtn.textContent = '摇签中...';
+            tube.classList.add('tube-shake');
+            
+            setTimeout(() => {
+                tube.classList.remove('tube-shake');
+                document.getElementById('sticks').style.display = 'none';
+                const falling = document.getElementById('fallingStick');
+                falling.style.display = 'block';
+                falling.classList.add('stick-fall');
+                
+                setTimeout(() => {
+                    currentResult = data[Math.floor(Math.random() * data.length)];
+                    document.getElementById('tubeSvg').style.display = 'none';
+                    const result = document.getElementById('shakeResult');
+                    result.style.display = 'block';
+                    
+                    document.getElementById('resultTitle').textContent = currentResult.t;
+                    renderVerticalText(currentResult.c, 'resultVertical');
+                    
+                    // Change button to close
+                    shakeBtn.style.display = 'none';
+                    const closeBtn = document.getElementById('closeShakeBtn');
+                    closeBtn.style.display = 'inline-block';
+                    
+                }, 1000);
+            }, 2000);
+        }
+
+        function closeShake(e) {
+            if (e.target === e.currentTarget) {
+                document.getElementById('shakeModal').classList.remove('active');
+            }
+        }
+
+        function closeShakeBtn() {
+            document.getElementById('shakeModal').classList.remove('active');
+        }
+
+        createParticles();
         render();
     </script>
 </body>
