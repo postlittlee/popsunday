@@ -1,1 +1,605 @@
-test
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灵签簿</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --ink: #2c2c2c;
+            --paper: #f4f1ea;
+            --cinnabar: #b83e2f;
+            --gold: #d4af37;
+            --bamboo: #5a7d5a;
+            --shadow: rgba(0,0,0,0.1);
+        }
+        
+        body {
+            font-family: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+            background: var(--paper);
+            color: var(--ink);
+            line-height: 1.8;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+        }
+        
+        /* 卷轴头部装饰 */
+        .scroll-header {
+            background: linear-gradient(to bottom, #e8e4d9 0%, var(--paper) 100%);
+            border-bottom: 3px double var(--cinnabar);
+            padding: 30px 20px 20px;
+            position: relative;
+            text-align: center;
+        }
+        
+        .cloud-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z' fill='%23b83e2f' opacity='0.1'/%3E%3C/svg%3E");
+            background-size: 1200px 100%;
+            opacity: 0.5;
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 0.5em;
+            color: var(--cinnabar);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .seal {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--cinnabar);
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--cinnabar);
+            transform: rotate(-5deg);
+            box-shadow: inset 0 0 5px rgba(184,62,47,0.3);
+        }
+        
+        /* 搜索区域 */
+        .search-area {
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border-bottom: 1px solid rgba(184,62,47,0.2);
+        }
+        
+        .search-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            display: block;
+            padding: 15px 20px 15px 50px;
+            border: 2px solid rgba(184,62,47,0.3);
+            border-radius: 30px;
+            font-size: 16px;
+            background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23b83e2f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 20px center;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .search-box:focus {
+            border-color: var(--cinnabar);
+            box-shadow: 0 0 0 3px rgba(184,62,47,0.1);
+        }
+        
+        /* 筛选标签 */
+        .filter-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .filter-tab {
+            padding: 8px 24px;
+            border: 2px solid transparent;
+            background: transparent;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 20px;
+            font-family: inherit;
+            color: var(--ink);
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .filter-tab::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            padding: 2px;
+            background: linear-gradient(45deg, var(--cinnabar), var(--gold));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .filter-tab:hover::before,
+        .filter-tab.active::before {
+            opacity: 1;
+        }
+        
+        .filter-tab.active {
+            color: var(--cinnabar);
+            font-weight: 600;
+        }
+        
+        /* 统计条 */
+        .count-bar {
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px dashed rgba(0,0,0,0.1);
+        }
+        
+        /* 主内容区 */
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+            position: relative;
+        }
+        
+        /* 竹简装饰 */
+        .bamboo-decor {
+            position: absolute;
+            left: -30px;
+            top: 100px;
+            width: 20px;
+            height: 200px;
+            background: repeating-linear-gradient(
+                to bottom,
+                var(--bamboo) 0px,
+                var(--bamboo) 15px,
+                #4a6b4a 15px,
+                #4a6b4a 17px
+            );
+            border-radius: 10px;
+            opacity: 0.3;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .bamboo-decor.right {
+            left: auto;
+            right: -30px;
+        }
+        
+        /* 字母分组标题 */
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin: 30px 0 15px;
+            position: sticky;
+            top: 0;
+            background: var(--paper);
+            padding: 10px 0;
+            z-index: 10;
+        }
+        
+        .section-letter {
+            width: 40px;
+            height: 40px;
+            background: var(--cinnabar);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-right: 15px;
+            box-shadow: 0 2px 8px rgba(184,62,47,0.3);
+        }
+        
+        .section-line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, var(--cinnabar), transparent);
+        }
+        
+        /* 签文卡片 */
+        .fortune-item {
+            background: white;
+            margin-bottom: 15px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow);
+            border-left: 4px solid var(--cinnabar);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .fortune-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .fortune-item.bads {
+            border-left-color: #555;
+        }
+        
+        .fortune-item::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 10 C30 10, 10 30, 10 50 C10 70, 30 90, 50 90 C70 90, 90 70, 90 50 C90 30, 70 10, 50 10' fill='none' stroke='%23d4af37' stroke-width='2' opacity='0.3'/%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        
+        .fortune-type {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+        }
+        
+        .fortune-type.goods {
+            background: rgba(184,62,47,0.1);
+            color: var(--cinnabar);
+            border: 1px solid rgba(184,62,47,0.3);
+        }
+        
+        .fortune-type.bads {
+            background: rgba(0,0,0,0.05);
+            color: #555;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        
+        .fortune-text {
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--ink);
+            font-weight: 500;
+        }
+        
+        /* 字母导航 */
+        .alphabet-nav {
+            position: fixed;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.9);
+            border-radius: 20px;
+            padding: 10px 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid rgba(184,62,47,0.2);
+            z-index: 100;
+        }
+        
+        .alphabet-nav a {
+            display: block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--cinnabar);
+            text-decoration: none;
+            border-radius: 50%;
+            margin: 2px 0;
+            transition: all 0.2s;
+        }
+        
+        .alphabet-nav a:hover {
+            background: var(--cinnabar);
+            color: white;
+        }
+        
+        /* 空状态 */
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .no-results svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        /* 页脚装饰 */
+        .footer-decor {
+            text-align: center;
+            padding: 40px 20px;
+            opacity: 0.5;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+                letter-spacing: 0.3em;
+            }
+            
+            .alphabet-nav {
+                right: 5px;
+                padding: 5px 2px;
+            }
+            
+            .alphabet-nav a {
+                width: 24px;
+                height: 24px;
+                line-height: 24px;
+                font-size: 11px;
+            }
+            
+            .bamboo-decor {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="scroll-header">
+        <div class="cloud-pattern"></div>
+        <h1>
+            <svg width="40" height="40" viewBox="0 0 100 100" style="vertical-align: middle;">
+                <rect x="20" y="20" width="60" height="60" fill="none" stroke="#b83e2f" stroke-width="3" rx="5"/>
+                <text x="50" y="65" text-anchor="middle" font-size="40" fill="#b83e2f" font-family="serif">籤</text>
+            </svg>
+            灵签簿
+            <svg width="40" height="40" viewBox="0 0 100 100" style="vertical-align: middle;">
+                <circle cx="50" cy="50" r="35" fill="none" stroke="#d4af37" stroke-width="2"/>
+                <path d="M50 20 Q70 35 70 50 Q70 65 50 80 Q30 65 30 50 Q30 35 50 20" fill="none" stroke="#b83e2f" stroke-width="2"/>
+            </svg>
+        </h1>
+    </div>
+    
+    <!-- 搜索 -->
+    <div class="search-area">
+        <input type="text" class="search-box" id="searchInput" placeholder="搜索签文（支持简体/繁体）...">
+    </div>
+    
+    <!-- 筛选 -->
+    <div class="filter-tabs">
+        <button class="filter-tab active" onclick="setFilter('all')">全部签文</button>
+        <button class="filter-tab" onclick="setFilter('goods')">吉签</button>
+        <button class="filter-tab" onclick="setFilter('bads')">凶签</button>
+    </div>
+    
+    <!-- 统计 -->
+    <div class="count-bar" id="countBar">共 7 支签</div>
+    
+    <!-- 内容 -->
+    <div class="content">
+        <div class="bamboo-decor"></div>
+        <div class="bamboo-decor right"></div>
+        <div id="results"></div>
+    </div>
+    
+    <!-- 字母导航 -->
+    <div class="alphabet-nav" id="alphabetNav"></div>
+    
+    <!-- 底部装饰 -->
+    <div class="footer-decor">
+        <svg width="200" height="30" viewBox="0 0 200 30" style="margin: 0 auto;">
+            <path d="M0,15 Q50,5 100,15 T200,15" fill="none" stroke="#b83e2f" stroke-width="1" opacity="0.3"/>
+            <circle cx="100" cy="15" r="3" fill="#b83e2f" opacity="0.5"/>
+        </svg>
+    </div>
+
+    <script>
+        // 简繁体转换表
+        const charMap = {
+            '謹': '谨', '謹': '谨', '謹': '谨',
+            '穩': '稳', '進': '进', '漸': '渐', '昇': '升',
+            '斂': '敛', '鋒': '锋', '內': '内', '積': '积', '靜': '静', '華': '华',
+            '撫': '抚', '氣': '气', '興': '兴', '澤': '泽', '綿': '绵',
+            '極': '极', '來': '来', '獲': '获', '鵬': '鹏', '遠': '远',
+            '審': '审', '視': '视', '細': '细', '機': '机', '趨': '趋', '頭': '头',
+            '堅': '坚', '鳴': '鸣'
+        };
+        
+        function simplify(str) {
+            return str.split('').map(c => charMap[c] || c).join('');
+        }
+        
+        // 数据源
+        const rawData = {
+            goods: [
+                "謹慎，謹言慎行，防微杜漸，福自安",
+                "穩步，循序漸進，根基穩，步步高昇",
+                "收斂，鋒芒內斂，蓄德聚福，靜待光華",
+                "安撫，心平氣和，家和事興，福澤綿",
+                "再起，否極泰來，重獲生機，鵬程遠",
+                "審視，明察秋毫，洞察先機，趨吉避",
+                "感情，琴瑟和鳴，情堅似金，白首同"
+            ],
+            bads: ["待補充"]
+        };
+        
+        // 拼音首字母表（正确映射）
+        const pinyinMap = {
+            '謹': 'J', '谨': 'J',
+            '穩': 'W', '稳': 'W',
+            '收': 'S',
+            '安': 'A',
+            '再': 'Z',
+            '審': 'S', '审': 'S',
+            '感': 'G',
+            '待': 'D',
+            '凶': 'X',
+            '禍': 'H'
+        };
+        
+        let currentFilter = 'all';
+        let fortunes = [];
+        
+        function parseData() {
+            fortunes = [];
+            
+            // 解析吉签
+            rawData.goods.forEach((text, idx) => {
+                if (text && text !== '待補充') {
+                    const title = text.split('，')[0];
+                    fortunes.push({
+                        id: `g${idx}`,
+                        type: 'goods',
+                        label: '吉',
+                        title: title,
+                        content: text,
+                        letter: pinyinMap[title[0]] || title[0],
+                        idx: idx
+                    });
+                }
+            });
+            
+            // 解析凶签
+            rawData.bads.forEach((text, idx) => {
+                if (text && text !== '待補充') {
+                    const title = text.split('，')[0];
+                    fortunes.push({
+                        id: `b${idx}`,
+                        type: 'bads',
+                        label: '凶',
+                        title: title,
+                        content: text,
+                        letter: pinyinMap[title[0]] || title[0],
+                        idx: idx
+                    });
+                }
+            });
+        }
+        
+        function render() {
+            const container = document.getElementById('results');
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const querySimple = simplify(query);
+            
+            // 过滤
+            let filtered = fortunes.filter(f => {
+                const matchType = currentFilter === 'all' || f.type === currentFilter;
+                if (!query) return matchType;
+                
+                const contentSimple = simplify(f.content);
+                const titleSimple = simplify(f.title);
+                
+                return matchType && (
+                    f.content.includes(query) || 
+                    f.title.includes(query) ||
+                    contentSimple.includes(querySimple) ||
+                    titleSimple.includes(querySimple)
+                );
+            });
+            
+            // 按拼音字母排序
+            filtered.sort((a, b) => a.letter.localeCompare(b.letter));
+            
+            // 更新计数
+            document.getElementById('countBar').textContent = `共 ${filtered.length} 支签`;
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <p>未找到匹配签文</p>
+                    </div>
+                `;
+                document.getElementById('alphabetNav').innerHTML = '';
+                return;
+            }
+            
+            // 按字母分组
+            const groups = {};
+            filtered.forEach(f => {
+                if (!groups[f.letter]) groups[f.letter] = [];
+                groups[f.letter].push(f);
+            });
+            
+            const letters = Object.keys(groups).sort();
+            
+            // 渲染内容
+            let html = '';
+            letters.forEach(letter => {
+                html += `
+                    <div class="section-header" id="sec-${letter}">
+                        <div class="section-letter">${letter}</div>
+                        <div class="section-line"></div>
+                    </div>
+                `;
+                
+                groups[letter].forEach(f => {
+                    html += `
+                        <div class="fortune-item ${f.type}">
+                            <div class="fortune-type ${f.type}">${f.label}签</div>
+                            <div class="fortune-text">${f.content}</div>
+                        </div>
+                    `;
+                });
+            });
+            
+            container.innerHTML = html;
+            
+            // 渲染字母导航
+            const nav = document.getElementById('alphabetNav');
+            nav.innerHTML = letters.map(l => 
+                `<a href="#sec-${l}" onclick="return scrollToLetter('${l}')">${l}</a>`
+            ).join('');
+        }
+        
+        function scrollToLetter(letter) {
+            const el = document.getElementById(`sec-${letter}`);
+            if (el) {
+                const offset = 200;
+                const top = el.offsetTop - offset;
+                window.scrollTo({ top: top, behavior: 'smooth' });
+            }
+            return false;
+        }
+        
+        function setFilter(type) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-tab').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(type === 'all' ? '全部' : type === 'goods' ? '吉' : '凶')) {
+                    btn.classList.add('active');
+                }
+            });
+            render();
+        }
+        
+        // 事件监听
+        document.getElementById('searchInput').addEventListener('input', render);
+        
+        // 初始化
+        parseData();
+        render();
+    </script>
+</body>
+</html>
