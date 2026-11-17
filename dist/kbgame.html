@@ -221,19 +221,40 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
 
-    // dark outline so it reads on any background
+    /* ---- SOFT NEON GLOW -------------------------------------------
+       We do NOT use ctx.shadowBlur here: Safari renders text shadows
+       badly (clipped, offset, or not at all) and it is slow. Instead
+       we fake the glow with a few wide, very transparent strokes,
+       drawn additively, before the solid glyph goes on top.          */
+    ctx.globalCompositeOperation = 'lighter';
+
+    var glowSteps = [
+      { w: 0.34, a: 0.055, l: 58 },
+      { w: 0.22, a: 0.085, l: 62 },
+      { w: 0.13, a: 0.130, l: 68 }
+    ];
+
+    for (var i = 0; i < glowSteps.length; i++) {
+      var s = glowSteps[i];
+      ctx.lineWidth = size * s.w;
+      ctx.strokeStyle = 'hsla(' + this.hue + ',100%,' + s.l + '%,' + s.a + ')';
+      ctx.strokeText(this.ch, 0, 0);
+    }
+
+    /* ---- DARK OUTLINE (keeps the glyph readable on any background) */
+    ctx.globalCompositeOperation = 'source-over';
     ctx.lineWidth = size * 0.16;
     ctx.strokeStyle = 'rgba(8,0,28,0.45)';
     ctx.strokeText(this.ch, 0, 0);
 
+    /* ---- GRADIENT FILL -------------------------------------------- */
     var g = ctx.createLinearGradient(-size * 0.5, -size * 0.5, size * 0.5, size * 0.5);
     g.addColorStop(0.0, 'hsl(' + this.hue + ',100%,82%)');
     g.addColorStop(0.5, 'hsl(' + ((this.hue + 55) % 360) + ',100%,68%)');
     g.addColorStop(1.0, 'hsl(' + ((this.hue + 120) % 360) + ',100%,74%)');
     ctx.fillStyle = g;
-    ctx.shadowColor = 'hsl(' + this.hue + ',100%,62%)';
-    ctx.shadowBlur = size * 0.55;
     ctx.fillText(this.ch, 0, 0);
 
     ctx.restore();
@@ -324,7 +345,6 @@
     initAudio();
 
     if (e.repeat) {
-      // gentle trickle while a key is held down
       var p = randomPos();
       spawnAt(p.x, p.y, null, 0.35);
       return;
@@ -344,7 +364,6 @@
     playNote(nextFreq());
   }, { passive: true });
 
-  // block right-click / context menus for a smoother toddler experience
   window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   /* ------------------------------------------------------------------ */
