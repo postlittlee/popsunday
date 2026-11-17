@@ -51,7 +51,7 @@
 
   var FONT = '"Trebuchet MS", "Arial Black", system-ui, sans-serif';
   var letterCache = new Map();
-  var LETTER_CACHE_MAX = 12;
+  var LETTER_CACHE_MAX = 36;
 
   var bgCanvas = document.createElement('canvas');
   var bgCtx = bgCanvas.getContext('2d');
@@ -237,15 +237,12 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /*  LETTER  (pre-rendered sprite, cached)                              */
+  /*  LETTER  (pre-rendered sprite, cached per glyph + hue bucket)       */
   /* ------------------------------------------------------------------ */
 
-  function hueForChar(ch) {
-    var h = 0;
-    for (var i = 0; i < ch.length; i++) {
-      h = ((h * 31) + ch.charCodeAt(i)) >>> 0;
-    }
-    return h % 360;
+  // 24 buckets of 15 degrees — enough variety, small enough cache.
+  function hueBucket(hue) {
+    return Math.round(hue / 15) % 24;
   }
 
   function createLetterSprite(ch, hue, baseSize) {
@@ -301,15 +298,16 @@
     return { canvas: c, cssW: cssW, cssH: cssH };
   }
 
-  function getLetterSprite(ch, baseSize) {
-    var key = ch + '|' + Math.round(baseSize);
+  function getLetterSprite(ch, baseSize, hue) {
+    var hb = hueBucket(hue);
+    var key = ch + '|' + Math.round(baseSize) + '|' + hb;
     var hit = letterCache.get(key);
     if (hit) {
       letterCache.delete(key);
       letterCache.set(key, hit);
       return hit;
     }
-    var sprite = createLetterSprite(ch, hueForChar(ch), baseSize);
+    var sprite = createLetterSprite(ch, hb * 15, baseSize);
     letterCache.set(key, sprite);
     if (letterCache.size > LETTER_CACHE_MAX) {
       var first = letterCache.keys().next().value;
@@ -318,8 +316,8 @@
     return sprite;
   }
 
-  function Letter(ch, x, y, baseSize) {
-    this.sprite = getLetterSprite(ch, baseSize);
+  function Letter(ch, x, y, baseSize, hue) {
+    this.sprite = getLetterSprite(ch, baseSize, hue);
     this.x = x;
     this.y = y;
     this.age = 0;
@@ -386,7 +384,8 @@
     if (label) {
       if (letters.length >= MAX_LETTERS) letters.shift();
       var baseSize = Math.min(W, H) * (label.length > 1 ? 0.13 : 0.21);
-      letters.push(new Letter(label, x, y, baseSize));
+      // use the same random hue as the burst, so the glyph is colourful
+      letters.push(new Letter(label, x, y, baseSize, hue));
     }
   }
 
