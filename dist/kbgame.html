@@ -6,7 +6,8 @@
 <meta name="theme-color" content="#080814">
 <title>Press Any Key ✦</title>
 <style>
-  html, body {
+  html { height: 100%; overflow: hidden; }
+  body {
     margin: 0; padding: 0;
     height: 100%;
     overflow: hidden;
@@ -15,6 +16,7 @@
     overscroll-behavior: none;
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
   canvas { display: block; width: 100%; height: 100%; }
 </style>
@@ -36,36 +38,93 @@
   var letters = [];
   var blobs = [];
 
+  var MAX_PARTICLES = 400;
+  var MAX_RINGS = 6;
+  var MAX_LETTERS = 6;
+
   var actx = null;
   var noteIdx = 0;
   var SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+
+  var measureCanvas = document.createElement('canvas');
+  var measureCtx = measureCanvas.getContext('2d');
+
+  var FONT = '"Trebuchet MS", "Arial Black", system-ui, sans-serif';
+  var letterCache = new Map();
+  var LETTER_CACHE_MAX = 12;
+
+  var bgCanvas = document.createElement('canvas');
+  var bgCtx = bgCanvas.getContext('2d');
+  var lastBGHue = -999;
 
   /* ------------------------------------------------------------------ */
   /*  SETUP                                                              */
   /* ------------------------------------------------------------------ */
 
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var smallScreen = Math.min(window.innerWidth, window.innerHeight) < 820;
+    var maxDPR = smallScreen ? 1.5 : 2;
+    DPR = Math.min(window.devicePixelRatio || 1, maxDPR);
     W = window.innerWidth;
     H = window.innerHeight;
     canvas.width  = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    MAX_PARTICLES = smallScreen ? 320 : 500;
+    MAX_RINGS     = smallScreen ? 5   : 8;
+    MAX_LETTERS   = smallScreen ? 5   : 7;
+
+    letterCache.clear();
+    buildBgCache();
     makeBlobs();
+  }
+
+  function buildBgCache() {
+    bgCanvas.width  = Math.round(W * DPR);
+    bgCanvas.height = Math.round(H * DPR);
+    renderBgToCache(bgHue);
+    lastBGHue = bgHue;
+  }
+
+  function renderBgToCache(h) {
+    bgCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    var g = bgCtx.createLinearGradient(0, 0, W * 0.85, H);
+    g.addColorStop(0.00, 'hsl(' + h + ',70%,9%)');
+    g.addColorStop(0.45, 'hsl(' + ((h + 50) % 360) + ',75%,13%)');
+    g.addColorStop(1.00, 'hsl(' + ((h + 120) % 360) + ',70%,7%)');
+    bgCtx.fillStyle = g;
+    bgCtx.fillRect(0, 0, W, H);
   }
 
   function makeBlobs() {
     blobs.length = 0;
-    for (var i = 0; i < 8; i++) {
+    var n = Math.min(window.innerWidth, window.innerHeight) < 820 ? 4 : 6;
+    for (var i = 0; i < n; i++) {
+      var hue = Math.random() * 360;
       blobs.push({
         x: Math.random() * W,
         y: Math.random() * H,
-        r: 90 + Math.random() * Math.min(W, H) * 0.45,
-        hue: Math.random() * 360,
+        r: 90 + Math.random() * Math.min(W, H) * 0.30,
         vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5
+        vy: (Math.random() - 0.5) * 0.5,
+        sprite: createBlobSprite(hue)
       });
     }
+  }
+
+  function createBlobSprite(hue) {
+    var size = 160;
+    var c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    var x = c.getContext('2d');
+    var rg = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    rg.addColorStop(0,   'hsla(' + hue + ',95%,58%,0.14)');
+    rg.addColorStop(0.5, 'hsla(' + hue + ',95%,58%,0.055)');
+    rg.addColorStop(1,   'hsla(' + hue + ',95%,58%,0)');
+    x.fillStyle = rg;
+    x.fillRect(0, 0, size, size);
+    return c;
   }
 
   window.addEventListener('resize', resize);
@@ -81,13 +140,9 @@
     if (!actx) {
       try {
         actx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
-        actx = null;
-      }
+      } catch (e) { actx = null; }
     }
-    if (actx && actx.state === 'suspended') {
-      actx.resume();
-    }
+    if (actx && actx.state === 'suspended') actx.resume();
   }
 
   function freqForIndex(i) {
@@ -106,7 +161,7 @@
 
     var master = actx.createGain();
     master.gain.setValueAtTime(0.0001, t0);
-    master.gain.exponentialRampToValueAtTime(0.20, t0 + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
     master.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
     master.connect(actx.destination);
 
@@ -125,7 +180,7 @@
     o2.type = 'sine';
     o2.frequency.setValueAtTime(freq * 2.003, t0);
     var g2 = actx.createGain();
-    g2.gain.value = 0.38;
+    g2.gain.value = 0.36;
     o2.connect(g2);
     g2.connect(filt);
 
@@ -145,7 +200,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /*  PARTICLE                                                           */
+  /*  PARTICLE  (cheap fillRect dots)                                    */
   /* ------------------------------------------------------------------ */
 
   function Particle(x, y, hue, power) {
@@ -172,30 +227,105 @@
   };
 
   Particle.prototype.draw = function () {
-    var a = this.life > 0 ? this.life : 0;
+    var a = this.life;
     if (a <= 0.02) return;
-    ctx.strokeStyle = 'hsla(' + this.hue + ',100%,' + (58 + 28 * a) + '%,' + a + ')';
-    ctx.lineWidth = Math.max(0.6, this.size * a);
-    ctx.beginPath();
-    ctx.moveTo(this.x - this.vx * 1.4, this.y - this.vy * 1.4);
-    ctx.lineTo(this.x, this.y);
-    ctx.stroke();
+    if (a > 1) a = 1;
+    var s = this.size * a;
+    if (s < 0.7) s = 0.7;
+    ctx.fillStyle = 'hsla(' + this.hue + ',100%,' + (58 + 28 * a) + '%,' + a + ')';
+    ctx.fillRect(this.x - s * 0.5, this.y - s * 0.5, s, s);
   };
 
   /* ------------------------------------------------------------------ */
-  /*  LETTER                                                             */
+  /*  LETTER  (pre-rendered sprite, cached)                              */
   /* ------------------------------------------------------------------ */
 
-  function Letter(ch, x, y, hue) {
-    this.ch = ch;
+  function hueForChar(ch) {
+    var h = 0;
+    for (var i = 0; i < ch.length; i++) {
+      h = ((h * 31) + ch.charCodeAt(i)) >>> 0;
+    }
+    return h % 360;
+  }
+
+  function createLetterSprite(ch, hue, baseSize) {
+    var font = '900 ' + baseSize + 'px ' + FONT;
+    measureCtx.font = font;
+    var textW = measureCtx.measureText(ch).width;
+
+    var pad = baseSize * 0.55;
+    var cssW = Math.max(baseSize * 1.0, textW + pad * 2);
+    var cssH = baseSize * 1.55 + pad * 2;
+
+    var res = 1.5;
+    var c = document.createElement('canvas');
+    c.width  = Math.ceil(cssW * res);
+    c.height = Math.ceil(cssH * res);
+    var x = c.getContext('2d');
+    x.setTransform(res, 0, 0, res, 0, 0);
+    x.translate(cssW / 2, cssH / 2);
+    x.font = font;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.lineJoin = 'round';
+    x.lineCap = 'round';
+
+    // soft glow: additive wide translucent strokes
+    x.globalCompositeOperation = 'lighter';
+    var glowSteps = [
+      { w: 0.34, a: 0.055, l: 58 },
+      { w: 0.22, a: 0.085, l: 62 },
+      { w: 0.13, a: 0.130, l: 68 }
+    ];
+    for (var i = 0; i < glowSteps.length; i++) {
+      var s = glowSteps[i];
+      x.lineWidth = baseSize * s.w;
+      x.strokeStyle = 'hsla(' + hue + ',100%,' + s.l + '%,' + s.a + ')';
+      x.strokeText(ch, 0, 0);
+    }
+
+    // dark outline for readability
+    x.globalCompositeOperation = 'source-over';
+    x.lineWidth = baseSize * 0.16;
+    x.strokeStyle = 'rgba(8,0,28,0.45)';
+    x.strokeText(ch, 0, 0);
+
+    // gradient fill
+    var g = x.createLinearGradient(-baseSize * 0.5, -baseSize * 0.5, baseSize * 0.5, baseSize * 0.5);
+    g.addColorStop(0.0, 'hsl(' + hue + ',100%,82%)');
+    g.addColorStop(0.5, 'hsl(' + ((hue + 55) % 360) + ',100%,68%)');
+    g.addColorStop(1.0, 'hsl(' + ((hue + 120) % 360) + ',100%,74%)');
+    x.fillStyle = g;
+    x.fillText(ch, 0, 0);
+
+    return { canvas: c, cssW: cssW, cssH: cssH };
+  }
+
+  function getLetterSprite(ch, baseSize) {
+    var key = ch + '|' + Math.round(baseSize);
+    var hit = letterCache.get(key);
+    if (hit) {
+      letterCache.delete(key);
+      letterCache.set(key, hit);
+      return hit;
+    }
+    var sprite = createLetterSprite(ch, hueForChar(ch), baseSize);
+    letterCache.set(key, sprite);
+    if (letterCache.size > LETTER_CACHE_MAX) {
+      var first = letterCache.keys().next().value;
+      letterCache.delete(first);
+    }
+    return sprite;
+  }
+
+  function Letter(ch, x, y, baseSize) {
+    this.sprite = getLetterSprite(ch, baseSize);
     this.x = x;
     this.y = y;
-    this.hue = hue;
     this.age = 0;
     this.life = 1.7;
     this.rot0 = (Math.random() - 0.5) * 0.9;
     this.phase = Math.random() * Math.PI * 2;
-    this.baseSize = Math.min(W, H) * (ch.length > 1 ? 0.13 : 0.21);
   }
 
   Letter.prototype.update = function (dt) {
@@ -210,53 +340,13 @@
     var fade = t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
     if (fade <= 0 || grow <= 0.001) return;
 
-    var size = this.baseSize;
-
+    var s = this.sprite;
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot0 * Math.sin(this.phase * 0.7));
     ctx.scale(grow, grow);
     ctx.globalAlpha = Math.max(0, fade);
-    ctx.font = '900 ' + size + 'px "Trebuchet MS", "Arial Black", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-
-    /* ---- SOFT NEON GLOW -------------------------------------------
-       We do NOT use ctx.shadowBlur here: Safari renders text shadows
-       badly (clipped, offset, or not at all) and it is slow. Instead
-       we fake the glow with a few wide, very transparent strokes,
-       drawn additively, before the solid glyph goes on top.          */
-    ctx.globalCompositeOperation = 'lighter';
-
-    var glowSteps = [
-      { w: 0.34, a: 0.055, l: 58 },
-      { w: 0.22, a: 0.085, l: 62 },
-      { w: 0.13, a: 0.130, l: 68 }
-    ];
-
-    for (var i = 0; i < glowSteps.length; i++) {
-      var s = glowSteps[i];
-      ctx.lineWidth = size * s.w;
-      ctx.strokeStyle = 'hsla(' + this.hue + ',100%,' + s.l + '%,' + s.a + ')';
-      ctx.strokeText(this.ch, 0, 0);
-    }
-
-    /* ---- DARK OUTLINE (keeps the glyph readable on any background) */
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.lineWidth = size * 0.16;
-    ctx.strokeStyle = 'rgba(8,0,28,0.45)';
-    ctx.strokeText(this.ch, 0, 0);
-
-    /* ---- GRADIENT FILL -------------------------------------------- */
-    var g = ctx.createLinearGradient(-size * 0.5, -size * 0.5, size * 0.5, size * 0.5);
-    g.addColorStop(0.0, 'hsl(' + this.hue + ',100%,82%)');
-    g.addColorStop(0.5, 'hsl(' + ((this.hue + 55) % 360) + ',100%,68%)');
-    g.addColorStop(1.0, 'hsl(' + ((this.hue + 120) % 360) + ',100%,74%)');
-    ctx.fillStyle = g;
-    ctx.fillText(this.ch, 0, 0);
-
+    ctx.drawImage(s.canvas, -s.cssW / 2, -s.cssH / 2, s.cssW, s.cssH);
     ctx.restore();
   };
 
@@ -276,24 +366,27 @@
     bgHue = (bgHue + 34) % 360;
 
     var count = Math.round(30 * (power || 1));
-    for (var i = 0; i < count; i++) {
+    var i;
+    for (i = 0; i < count; i++) {
       particles.push(new Particle(x, y, hue, power));
     }
-    if (particles.length > 1400) {
-      particles.splice(0, particles.length - 1400);
+    if (particles.length > MAX_PARTICLES) {
+      particles.splice(0, particles.length - MAX_PARTICLES);
     }
 
+    if (rings.length >= MAX_RINGS) rings.shift();
     rings.push({
       x: x, y: y,
       r: 8,
-      maxR: Math.min(W, H) * 0.32 + Math.random() * Math.min(W, H) * 0.30,
+      maxR: Math.min(W, H) * 0.30 + Math.random() * Math.min(W, H) * 0.28,
       hue: hue,
       w: 9
     });
 
     if (label) {
-      if (letters.length > 16) letters.shift();
-      letters.push(new Letter(label, x, y, hue));
+      if (letters.length >= MAX_LETTERS) letters.shift();
+      var baseSize = Math.min(W, H) * (label.length > 1 ? 0.13 : 0.21);
+      letters.push(new Letter(label, x, y, baseSize));
     }
   }
 
@@ -370,21 +463,7 @@
   /*  RENDER                                                             */
   /* ------------------------------------------------------------------ */
 
-  function drawBackground() {
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
-
-    var h = bgHue;
-    var g = ctx.createLinearGradient(0, 0, W * 0.85, H);
-    g.addColorStop(0.00, 'hsl(' + h + ',70%,9%)');
-    g.addColorStop(0.45, 'hsl(' + ((h + 50) % 360) + ',75%,13%)');
-    g.addColorStop(1.00, 'hsl(' + ((h + 120) % 360) + ',70%,7%)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-  }
-
   function drawBlobs(dt) {
-    ctx.globalCompositeOperation = 'lighter';
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i];
       b.x += b.vx * dt;
@@ -394,19 +473,12 @@
       if (b.y < -b.r) b.y = H + b.r;
       else if (b.y > H + b.r) b.y = -b.r;
 
-      var hue = (b.hue + bgHue) % 360;
-      var rg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-      rg.addColorStop(0, 'hsla(' + hue + ',95%,58%,0.13)');
-      rg.addColorStop(1, 'hsla(' + hue + ',95%,58%,0)');
-      ctx.fillStyle = rg;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fill();
+      var d = b.r * 2;
+      ctx.drawImage(b.sprite, b.x - b.r, b.y - b.r, d, d);
     }
   }
 
   function drawRings(dt) {
-    ctx.globalCompositeOperation = 'lighter';
     for (var i = rings.length - 1; i >= 0; i--) {
       var r = rings[i];
       r.r += (r.maxR - r.r) * 0.075 * dt;
@@ -422,8 +494,6 @@
   }
 
   function drawParticles(dt) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
       p.update(dt);
@@ -433,8 +503,6 @@
   }
 
   function drawLetters(dt) {
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
     for (var i = letters.length - 1; i >= 0; i--) {
       var l = letters[i];
       l.update(dt);
@@ -458,10 +526,26 @@
 
     bgHue = (bgHue + 0.22 * dt) % 360;
 
-    drawBackground();
+    // Background (cached — only re-baked when the hue drifts enough)
+    if (Math.abs(bgHue - lastBGHue) > 3) {
+      renderBgToCache(bgHue);
+      lastBGHue = bgHue;
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(bgCanvas, 0, 0);
+    ctx.restore();
+
+    // Additive glow layer (blobs + rings + particles)
+    ctx.globalCompositeOperation = 'lighter';
     drawBlobs(dt);
     drawRings(dt);
     drawParticles(dt);
+
+    // Letters on top
+    ctx.globalCompositeOperation = 'source-over';
     drawLetters(dt);
 
     requestAnimationFrame(frame);
